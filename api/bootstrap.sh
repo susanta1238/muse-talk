@@ -118,33 +118,38 @@ else
     mkdir -p models/musetalk models/musetalkV15 models/sd-vae models/whisper \
              models/dwpose models/face-parse-bisent models/syncnet
 
-    # Use the `hf` CLI directly (huggingface-cli is deprecated + broken).
-    # Each call fetches only the files we need.
+    # Download via huggingface_hub Python API — no CLI dependency.
+    python - <<'PY'
+from huggingface_hub import snapshot_download
 
-    echo "    [hf] TMElyralab/MuseTalk -> models/"
-    hf download TMElyralab/MuseTalk --local-dir models
+jobs = [
+    ("TMElyralab/MuseTalk",                   "models",                   None),
+    ("stabilityai/sd-vae-ft-mse",             "models/sd-vae",
+        ["config.json", "diffusion_pytorch_model.bin"]),
+    ("openai/whisper-tiny",                   "models/whisper",
+        ["config.json", "pytorch_model.bin", "preprocessor_config.json"]),
+    ("yzd-v/DWPose",                          "models/dwpose",
+        ["dw-ll_ucoco_384.pth"]),
+    ("ByteDance/LatentSync",                  "models/syncnet",
+        ["latentsync_syncnet.pt"]),
+    ("ManyOtherFunctions/face-parse-bisent",  "models/face-parse-bisent",
+        ["79999_iter.pth", "resnet18-5c106cde.pth"]),
+]
 
-    echo "    [hf] stabilityai/sd-vae-ft-mse -> models/sd-vae"
-    hf download stabilityai/sd-vae-ft-mse --local-dir models/sd-vae \
-        --include "config.json" "diffusion_pytorch_model.bin"
+for repo, dst, patterns in jobs:
+    print(f"    [hf] {repo} -> {dst}")
+    try:
+        snapshot_download(
+            repo_id=repo,
+            local_dir=dst,
+            allow_patterns=patterns,
+            local_dir_use_symlinks=False,
+        )
+    except Exception as e:
+        print(f"        WARN: {repo} failed: {e}")
+PY
 
-    echo "    [hf] openai/whisper-tiny -> models/whisper"
-    hf download openai/whisper-tiny --local-dir models/whisper \
-        --include "config.json" "pytorch_model.bin" "preprocessor_config.json"
-
-    echo "    [hf] yzd-v/DWPose -> models/dwpose"
-    hf download yzd-v/DWPose --local-dir models/dwpose \
-        --include "dw-ll_ucoco_384.pth"
-
-    echo "    [hf] ByteDance/LatentSync -> models/syncnet"
-    hf download ByteDance/LatentSync --local-dir models/syncnet \
-        --include "latentsync_syncnet.pt" || true
-
-    echo "    [hf] ManyOtherFunctions/face-parse-bisent -> models/face-parse-bisent"
-    hf download ManyOtherFunctions/face-parse-bisent --local-dir models/face-parse-bisent \
-        --include "79999_iter.pth" "resnet18-5c106cde.pth" || true
-
-    # Fallback for resnet18 face-parse which sometimes isn't on HF
+    # Fallback for resnet18 face-parse which sometimes isn't on HF.
     if [[ ! -f "models/face-parse-bisent/resnet18-5c106cde.pth" ]]; then
         echo "    [curl] resnet18-5c106cde.pth"
         curl -L -o models/face-parse-bisent/resnet18-5c106cde.pth \
