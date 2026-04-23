@@ -7,11 +7,11 @@
 #   bash api/bootstrap.sh
 #
 # Handles:
-#   1. System deps (ffmpeg)
-#   2. Python deps (respecting pod's preinstalled torch)
+#   1. System deps (ffmpeg, git-lfs)
+#   2. Python deps (keeping pod's preinstalled torch)
 #   3. Prebuilt mmcv wheel (avoids source build that fails on C++17)
-#   4. huggingface_hub pin (avoids transformers incompat)
-#   5. Model weights download (~5 GB, one-time, skipped if already present)
+#   4. huggingface_hub pin (transformers 4.39.2 requires <1.0)
+#   5. Model weights download via hf CLI (replaces broken download_weights.sh)
 #
 # Idempotent: safe to re-run.
 
@@ -28,7 +28,7 @@ echo "=================================================================="
 # ---------------------------------------------------------------- system
 echo ">>> [1/6] Installing system deps (ffmpeg, git-lfs)"
 apt-get update -qq
-apt-get install -y -qq ffmpeg git-lfs >/dev/null
+apt-get install -y -qq ffmpeg git-lfs >/dev/null || true
 
 # ---------------------------------------------------------------- torch
 echo ">>> [2/6] Checking preinstalled PyTorch"
@@ -44,7 +44,6 @@ if [[ "$TORCH_VERSION" == "missing" ]]; then
     exit 1
 fi
 
-# Pick the mmcv index URL that matches the installed torch + cuda.
 TORCH_MAJOR_MINOR=$(echo "$TORCH_VERSION" | awk -F. '{print $1"."$2}')
 CUDA_TAG="cu118"
 case "$TORCH_CUDA" in
@@ -63,67 +62,121 @@ echo ">>> [3/6] Installing Python deps"
 pip install --upgrade pip --quiet
 
 # Install the project's requirements but DO NOT let pip rewrite torch.
-# Strip torch/torchvision/torchaudio lines to avoid pulling a conflicting build.
 TMP_REQS=$(mktemp)
 grep -Ev '^(torch|torchvision|torchaudio)([=<>]|$)' requirements.txt > "$TMP_REQS"
 pip install -r "$TMP_REQS" --quiet
 rm -f "$TMP_REQS"
 
-# Pin huggingface_hub to a version compatible with transformers==4.39.2
-pip install "huggingface_hub>=0.19.3,<1.0" --quiet
-
 # API-specific deps
 pip install -r api/requirements-api.txt --quiet
 
+# Pin huggingface_hub — MUST come AFTER all installs that might upgrade it.
+pip install --quiet --force-reinstall --no-deps "huggingface_hub==0.24.7"
+
 # ---------------------------------------------------------------- mmcv stack
 echo ">>> [4/6] Installing mm{cv,det,pose,engine} prebuilt wheels"
-pip install -U openmim --quiet
-
-# mmcv 2.1.0 has prebuilt wheels for torch 2.1 / cu118; 2.0.1 does not.
 pip install mmengine --quiet
 pip install "mmcv>=2.0.1,<2.2" -f "$MMCV_INDEX" --quiet || {
-    echo "    Prebuilt mmcv wheel not found, falling back to mim install..."
+    echo "    Prebuilt mmcv wheel not found, falling back to openmim..."
+    pip install -U openmim --quiet
     mim install "mmcv>=2.0.1,<2.2"
 }
 pip install "mmdet==3.1.0" "mmpose==1.1.0" --quiet
 
-# ---------------------------------------------------------------- weights
-echo ">>> [5/6] Downloading model weights (~5 GB, skipped if present)"
-if [[ -f "models/musetalkV15/unet.pth" && -f "models/whisper/config.json" ]]; then
-    echo "    Weights already present, skipping."
-else
-    # Use the repo's download script; it's fine with the pinned hf hub.
-    if [[ -x "download_weights.sh" ]]; then
-        bash download_weights.sh || true
-    else
-        chmod +x download_weights.sh
-        bash download_weights.sh || true
-    fi
+# Re-pin hub in case mmdet/mmpose dragged in a newer version.
+pip install --quiet --force-reinstall --no-deps "huggingface_hub==0.24.7"
 
-    # Verify the critical files actually landed.
-    MISSING=0
+# ---------------------------------------------------------------- weights
+echo ">>> [5/6] Downloading model weights (~5 GB)"
+
+WEIGHTS_OK=1
+check_weights() {
+    WEIGHTS_OK=1
     for f in \
         "models/musetalkV15/unet.pth" \
         "models/musetalkV15/musetalk.json" \
         "models/sd-vae/config.json" \
+        "models/sd-vae/diffusion_pytorch_model.bin" \
         "models/whisper/config.json" \
+        "models/whisper/pytorch_model.bin" \
+        "models/whisper/preprocessor_config.json" \
         "models/dwpose/dw-ll_ucoco_384.pth" \
         "models/face-parse-bisent/79999_iter.pth" \
         "models/face-parse-bisent/resnet18-5c106cde.pth"
     do
         if [[ ! -f "$f" ]]; then
-            echo "    MISSING: $f"
-            MISSING=1
+            WEIGHTS_OK=0
+            echo "    missing: $f"
         fi
     done
-    if [[ $MISSING -eq 1 ]]; then
-        echo "    ERROR: some weights failed to download. Re-run the script."
+}
+
+check_weights
+if [[ $WEIGHTS_OK -eq 1 ]]; then
+    echo "    All weights already present, skipping download."
+else
+    mkdir -p models/musetalk models/musetalkV15 models/sd-vae models/whisper \
+             models/dwpose models/face-parse-bisent models/syncnet
+
+    # Use the `hf` CLI directly (huggingface-cli is deprecated + broken).
+    # Each call fetches only the files we need.
+
+    echo "    [hf] TMElyralab/MuseTalk -> models/"
+    hf download TMElyralab/MuseTalk --local-dir models
+
+    echo "    [hf] stabilityai/sd-vae-ft-mse -> models/sd-vae"
+    hf download stabilityai/sd-vae-ft-mse --local-dir models/sd-vae \
+        --include "config.json" "diffusion_pytorch_model.bin"
+
+    echo "    [hf] openai/whisper-tiny -> models/whisper"
+    hf download openai/whisper-tiny --local-dir models/whisper \
+        --include "config.json" "pytorch_model.bin" "preprocessor_config.json"
+
+    echo "    [hf] yzd-v/DWPose -> models/dwpose"
+    hf download yzd-v/DWPose --local-dir models/dwpose \
+        --include "dw-ll_ucoco_384.pth"
+
+    echo "    [hf] ByteDance/LatentSync -> models/syncnet"
+    hf download ByteDance/LatentSync --local-dir models/syncnet \
+        --include "latentsync_syncnet.pt" || true
+
+    echo "    [hf] ManyOtherFunctions/face-parse-bisent -> models/face-parse-bisent"
+    hf download ManyOtherFunctions/face-parse-bisent --local-dir models/face-parse-bisent \
+        --include "79999_iter.pth" "resnet18-5c106cde.pth" || true
+
+    # Fallback for resnet18 face-parse which sometimes isn't on HF
+    if [[ ! -f "models/face-parse-bisent/resnet18-5c106cde.pth" ]]; then
+        echo "    [curl] resnet18-5c106cde.pth"
+        curl -L -o models/face-parse-bisent/resnet18-5c106cde.pth \
+            https://download.pytorch.org/models/resnet18-5c106cde.pth
+    fi
+
+    check_weights
+    if [[ $WEIGHTS_OK -ne 1 ]]; then
+        echo "    ERROR: some weights are still missing after download."
         exit 1
     fi
 fi
 
-# ---------------------------------------------------------------- done
-echo ">>> [6/6] Done."
+# ---------------------------------------------------------------- verify
+echo ">>> [6/6] Verifying imports"
+python - <<'PY'
+import importlib, sys
+for mod in ("torch", "torchvision", "transformers", "diffusers",
+            "huggingface_hub", "mmcv", "mmdet", "mmpose", "mmengine",
+            "fastapi", "uvicorn"):
+    try:
+        m = importlib.import_module(mod)
+        v = getattr(m, "__version__", "?")
+        print(f"    ok  {mod:20s} {v}")
+    except Exception as e:
+        print(f"    FAIL {mod}: {e}")
+        sys.exit(1)
+import huggingface_hub as hh
+assert hh.__version__.startswith("0."), f"huggingface_hub must be <1.0, got {hh.__version__}"
+print("    hub version check passed")
+PY
+
 echo ""
 echo "=================================================================="
 echo " Bootstrap complete."
