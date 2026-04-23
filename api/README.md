@@ -20,27 +20,49 @@ FastAPI wrapper around MuseTalk for single-GPU lip-sync video generation.
 - **Local disk** at `api/storage/{uploads,videos,jobs}/`.
 - Uploads are cleaned up after the job completes.
 
-## Setup (local / RunPod pod)
+## Setup
+
+### RunPod (recommended — one command)
+
+On a pod using template **`runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04`**:
+
+```bash
+cd /workspace
+git clone https://github.com/susanta1238/muse-talk.git
+cd muse-talk
+bash api/bootstrap.sh       # installs deps + downloads weights (~5 GB)
+bash api/run.sh             # launches the API on :8000
+```
+
+The bootstrap script:
+- Installs `ffmpeg` and Python deps
+- Picks the right **prebuilt mmcv wheel** for the pod's torch + CUDA (avoids the C++17 source-build failure)
+- Pins `huggingface_hub<1.0` (avoids the `transformers` ImportError)
+- Downloads all model weights if not already present
+- Is idempotent — safe to re-run
+
+### Local / manual
 
 From the MuseTalk project root:
 
 ```bash
-# 1. System deps
 apt install -y ffmpeg
 
-# 2. Python deps (once)
-pip install -r requirements.txt
+# Install deps, skipping torch/torchvision/torchaudio (use what's in your env)
+grep -Ev '^(torch|torchvision|torchaudio)([=<>]|$)' requirements.txt | pip install -r /dev/stdin
+
+pip install "huggingface_hub>=0.19.3,<1.0"
 pip install -r api/requirements-api.txt
 pip install -U openmim
-mim install mmengine "mmcv==2.0.1" "mmdet==3.1.0" "mmpose==1.1.0"
+mim install mmengine
+pip install "mmcv>=2.0.1,<2.2" -f https://download.openmmlab.com/mmcv/dist/cu118/torch2.1/index.html
+pip install "mmdet==3.1.0" "mmpose==1.1.0"
 
-# 3. Weights (once, ~5 GB)
-bash download_weights.sh        # Linux/RunPod
-# or: download_weights.bat      # Windows
+bash download_weights.sh        # Linux / RunPod
+# download_weights.bat          # Windows
 
-# 4. Run
 bash api/run.sh                 # Linux
-# or: api\run.bat               # Windows
+# api\run.bat                   # Windows
 ```
 
 Server listens on `http://0.0.0.0:8000`. Swagger UI at `/docs`.
