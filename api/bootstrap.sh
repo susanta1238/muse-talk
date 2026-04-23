@@ -76,12 +76,14 @@ pip install --quiet --force-reinstall --no-deps "huggingface_hub==0.24.7"
 # ---------------------------------------------------------------- mmcv stack
 echo ">>> [4/6] Installing mm{cv,det,pose,engine} prebuilt wheels"
 pip install mmengine --quiet
-pip install "mmcv>=2.0.1,<2.2" -f "$MMCV_INDEX" --quiet || {
+pip install "mmcv==2.1.0" -f "$MMCV_INDEX" --quiet || {
     echo "    Prebuilt mmcv wheel not found, falling back to openmim..."
     pip install -U openmim --quiet
-    mim install "mmcv>=2.0.1,<2.2"
+    mim install "mmcv==2.1.0"
 }
-pip install "mmdet==3.1.0" "mmpose==1.1.0" --quiet
+# mmdet 3.2.0 is the first release that accepts mmcv 2.1.0.
+# mmpose 1.2.0 is the matching version.
+pip install "mmdet==3.2.0" "mmpose==1.2.0" --quiet
 
 # Re-pin hub in case mmdet/mmpose dragged in a newer version.
 pip install --quiet --force-reinstall --no-deps "huggingface_hub==0.24.7"
