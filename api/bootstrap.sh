@@ -60,7 +60,13 @@ echo "    mmcv wheel index: $MMCV_INDEX"
 
 # ---------------------------------------------------------------- python deps
 echo ">>> [3/6] Installing Python deps"
-pip install --upgrade pip --quiet
+pip install --upgrade pip setuptools wheel --quiet
+
+# chumpy (pulled in by mmpose) is an old package that breaks under
+# modern pip's build isolation ("No module named 'pip'"). Install it
+# first with --no-build-isolation so its sdist can see the parent pip.
+pip install --quiet --no-build-isolation "chumpy>=0.70" || \
+    pip install --quiet --no-build-isolation "numpy<1.23" "chumpy>=0.70"
 
 # Install the project's requirements but DO NOT let pip rewrite torch.
 TMP_REQS=$(mktemp)
