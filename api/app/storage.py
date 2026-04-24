@@ -58,6 +58,15 @@ def output_video_path(job_id: str) -> Path:
     return VIDEOS_DIR / f"{job_id}.mp4"
 
 
+def tts_audio_path() -> Path:
+    """Allocate a new path under uploads/ for a TTS-synthesized audio file.
+    Returns a fresh subdir so worker.cleanup_upload() can remove it when done.
+    """
+    sub = UPLOADS_DIR / uuid.uuid4().hex
+    sub.mkdir(parents=True, exist_ok=True)
+    return sub / "audio.wav"
+
+
 def cleanup_upload(path: Path):
     """Remove the per-upload subdir."""
     try:

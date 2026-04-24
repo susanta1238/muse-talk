@@ -6,7 +6,8 @@ FastAPI wrapper around MuseTalk for single-GPU lip-sync video generation.
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/v1/upload-generate-video` | Multipart upload: `avatar_video` + `audio`. Returns `{job_id, status}`. |
+| `POST` | `/api/v1/upload-generate-video` | Multipart: `avatar_video` + `audio`. Returns `{job_id, status}`. |
+| `POST` | `/api/v1/upload-generate-from-text` | Multipart: `avatar_video` + `text` + `gender` (+ optional `voice_id`, `speed`). TTS via Kokoro, then lip-sync. |
 | `GET`  | `/api/v1/job/{job_id}` | Job status: `queued` → `processing` → `completed` / `failed`. |
 | `GET`  | `/api/v1/video/{job_id}` | Download the generated MP4 once `status == completed`. |
 | `GET`  | `/health` | Liveness probe. |
@@ -101,6 +102,11 @@ On RunPod: use an NVIDIA CUDA 11.8 base, mount a persistent volume at `/app/mode
 | `MAX_UPLOAD_MB` | `500` | Per-file size cap |
 | `CORS_ALLOW` | `*` | CORS allow-origin |
 | `HOST` / `PORT` | `0.0.0.0` / `8000` | |
+| `TTS_LANG_CODE` | `a` | Kokoro language: `a` American, `b` British |
+| `TTS_VOICE_MALE` | `am_michael` | Kokoro voice used when `gender=male` |
+| `TTS_VOICE_FEMALE` | `af_heart` | Kokoro voice used when `gender=female` |
+| `TTS_DEFAULT_SPEED` | `1.0` | TTS speech rate |
+| `TTS_MAX_CHARS` | `5000` | Max chars accepted by text endpoint |
 
 ## Usage example
 
@@ -129,6 +135,28 @@ Stages (during `processing`): `starting`, `extracting_frames`, `extracting_landm
 ```bash
 curl -o result.mp4 http://localhost:8000/api/v1/video/abc123...
 ```
+
+### Generate from text (TTS + lip-sync)
+
+```bash
+curl -X POST http://localhost:8000/api/v1/upload-generate-from-text \
+  -F "avatar_video=@avatar.mp4" \
+  -F "text=Hello, welcome to our product demo." \
+  -F "gender=female"
+# → {"job_id": "...", "status": "queued"}
+```
+
+Optional form fields:
+- `voice_id`: override gender mapping, e.g. `am_adam`, `af_bella`, `bm_george`
+- `speed`: 0.5–2.0, default 1.0
+
+Poll/download identical to the audio flow above.
+
+**Kokoro voices (subset):**
+- Female: `af_heart` (default), `af_bella`, `af_sarah`, `af_nicole`, `bf_emma`
+- Male: `am_michael` (default), `am_adam`, `am_echo`, `bm_george`, `bm_lewis`
+
+Full catalog: https://huggingface.co/hexgrad/Kokoro-82M
 
 ### Python client
 

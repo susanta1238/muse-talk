@@ -88,6 +88,16 @@ pip install "mmdet==3.2.0" "mmpose==1.2.0" --quiet
 # Re-pin hub in case mmdet/mmpose dragged in a newer version.
 pip install --quiet --force-reinstall --no-deps "huggingface_hub==0.24.7"
 
+# ---------------------------------------------------------------- kokoro TTS
+echo ">>> [4b/6] Installing Kokoro TTS"
+# kokoro ships its weights lazily from HF on first use (~350 MB).
+# It needs espeak-ng for phonemization — install the system package.
+apt-get install -y -qq espeak-ng >/dev/null || true
+pip install --quiet "kokoro>=0.9.2" "soundfile>=0.12.1"
+
+# Re-pin hub once more — kokoro's install may touch it.
+pip install --quiet --force-reinstall --no-deps "huggingface_hub==0.24.7"
+
 # ---------------------------------------------------------------- weights
 echo ">>> [5/6] Downloading model weights (~5 GB)"
 
@@ -171,7 +181,7 @@ python - <<'PY'
 import importlib, sys
 for mod in ("torch", "torchvision", "transformers", "diffusers",
             "huggingface_hub", "mmcv", "mmdet", "mmpose", "mmengine",
-            "fastapi", "uvicorn"):
+            "fastapi", "uvicorn", "kokoro", "soundfile"):
     try:
         m = importlib.import_module(mod)
         v = getattr(m, "__version__", "?")

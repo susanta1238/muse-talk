@@ -29,5 +29,14 @@ AUDIO_PAD_RIGHT = int(os.environ.get("AUDIO_PAD_RIGHT", "2"))
 
 MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "500"))
 
+# ---------------------------------------------------------------- TTS (Kokoro)
+# Voice catalog: https://huggingface.co/hexgrad/Kokoro-82M
+# Prefix key: a=American, b=British. Second letter: f=female, m=male.
+TTS_LANG_CODE = os.environ.get("TTS_LANG_CODE", "a")  # 'a' American, 'b' British
+TTS_VOICE_MALE = os.environ.get("TTS_VOICE_MALE", "am_michael")
+TTS_VOICE_FEMALE = os.environ.get("TTS_VOICE_FEMALE", "af_heart")
+TTS_DEFAULT_SPEED = float(os.environ.get("TTS_DEFAULT_SPEED", "1.0"))
+TTS_MAX_CHARS = int(os.environ.get("TTS_MAX_CHARS", "5000"))
+
 for d in (STORAGE_DIR, UPLOADS_DIR, VIDEOS_DIR, JOBS_DIR):
     d.mkdir(parents=True, exist_ok=True)

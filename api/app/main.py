@@ -9,6 +9,8 @@ from . import jobs, worker
 from .musetalk_runner import get_runner
 from .routers.generate import router as generate_router
 from .routers.jobs_router import router as jobs_router
+from .routers.text import router as text_router
+from .services.tts import get_tts
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,6 +28,14 @@ async def lifespan(app: FastAPI):
     log.info("loading MuseTalk models...")
     get_runner().load()
     log.info("models loaded")
+
+    # Warm up Kokoro in the background on first synth; cheaper than loading at
+    # startup because the module pulls weights from HF lazily.
+    try:
+        get_tts()  # instantiate (lazy load happens on first synthesize)
+        log.info("TTS service ready (lazy-loads on first request)")
+    except Exception:
+        log.exception("TTS service unavailable — /upload-generate-from-text will fail")
 
     worker.start()
     worker.requeue_pending_on_startup()
@@ -60,4 +70,5 @@ async def health():
 
 
 app.include_router(generate_router)
+app.include_router(text_router)
 app.include_router(jobs_router)
