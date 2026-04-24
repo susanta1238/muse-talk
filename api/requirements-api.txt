@@ -5,3 +5,6 @@ python-multipart==0.0.9
 # requirements.txt) requires huggingface_hub<1.0, but download_weights.sh
 # upgrades it past that if unpinned.
 huggingface_hub>=0.19.3,<1.0
+# Voice Activity Detection for silence gating (prevents lips moving
+# during non-speech audio). CPU, ~20 MB, pulls only its own deps.
+silero-vad>=5.1.2

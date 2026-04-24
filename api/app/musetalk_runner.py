@@ -36,6 +36,7 @@ from musetalk.utils.preprocessing import (  # noqa: E402
 from musetalk.utils.utils import datagen, get_file_type, get_video_fps, load_all_model  # noqa: E402
 
 from . import config as cfg  # noqa: E402
+from . import vad as vad_mod  # noqa: E402
 
 _GPU_LOCK = threading.Lock()
 
@@ -186,6 +187,15 @@ class MuseTalkRunner:
                 audio_padding_length_right=cfg.AUDIO_PAD_RIGHT,
             )
 
+            _p(48, "vad")
+            # Build a speech mask so silent frames keep the original mouth
+            # instead of whatever Whisper hallucinates for silence.
+            speech_mask = vad_mod.compute_speech_mask(
+                audio_path=audio_path,
+                num_frames=len(whisper_chunks),
+                fps=float(fps),
+            )
+
             _p(50, "running_unet")
             video_num = len(whisper_chunks)
             gen = datagen(
@@ -214,6 +224,13 @@ class MuseTalkRunner:
             for i, res_frame in enumerate(res_frame_list):
                 bbox = coord_list_cycle[i % len(coord_list_cycle)]
                 ori_frame = copy.deepcopy(frame_list_cycle[i % len(frame_list_cycle)])
+
+                # Silence gate: during non-speech frames, keep the original
+                # avatar frame so lips don't move when no one is talking.
+                if i < len(speech_mask) and not speech_mask[i]:
+                    cv2.imwrite(str(out_imgs_dir / f"{i:08d}.png"), ori_frame)
+                    continue
+
                 x1, y1, x2, y2 = bbox
                 y2 = min(y2 + cfg.EXTRA_MARGIN, ori_frame.shape[0])
                 try:
