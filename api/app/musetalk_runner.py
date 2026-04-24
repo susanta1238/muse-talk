@@ -190,11 +190,19 @@ class MuseTalkRunner:
             _p(48, "vad")
             # Build a speech mask so silent frames keep the original mouth
             # instead of whatever Whisper hallucinates for silence.
-            speech_mask = vad_mod.compute_speech_mask(
-                audio_path=audio_path,
-                num_frames=len(whisper_chunks),
-                fps=float(fps),
-            )
+            if cfg.VAD_ENABLED:
+                speech_mask = vad_mod.compute_speech_mask(
+                    audio_path=audio_path,
+                    num_frames=len(whisper_chunks),
+                    fps=float(fps),
+                    threshold=cfg.VAD_THRESHOLD,
+                    min_speech_ms=cfg.VAD_MIN_SPEECH_MS,
+                    min_silence_ms=cfg.VAD_MIN_SILENCE_MS,
+                    padding_frames=cfg.VAD_PADDING_FRAMES,
+                )
+            else:
+                import numpy as _np
+                speech_mask = _np.ones(len(whisper_chunks), dtype=bool)
 
             _p(50, "running_unet")
             video_num = len(whisper_chunks)

@@ -82,7 +82,14 @@ def compute_speech_mask(
         )
 
         if not speech_windows:
-            logger.info("VAD found no speech windows; keeping all frames as speech")
+            # Entire audio is silence -> every frame should use the
+            # original avatar (no mouth motion generated).
+            logger.warning(
+                "VAD: no speech detected in %s (duration=%.2fs, threshold=%.2f). "
+                "Output will be all-original-frames. Consider lowering VAD_THRESHOLD.",
+                audio_path, len(waveform) / sr, threshold,
+            )
+            mask[:] = False
             return mask
 
         # Build silence mask from speech windows, then pad edges.

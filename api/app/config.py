@@ -38,5 +38,18 @@ TTS_VOICE_FEMALE = os.environ.get("TTS_VOICE_FEMALE", "af_heart")
 TTS_DEFAULT_SPEED = float(os.environ.get("TTS_DEFAULT_SPEED", "1.0"))
 TTS_MAX_CHARS = int(os.environ.get("TTS_MAX_CHARS", "5000"))
 
+# ---------------------------------------------------------------- VAD (silero)
+# Controls the silence-gating behavior.
+# Lower threshold => more aggressive (more frames gated as silence).
+# 0.3 treats marginal/quiet speech as silence; 0.5 is silero default.
+VAD_THRESHOLD = float(os.environ.get("VAD_THRESHOLD", "0.4"))
+VAD_MIN_SPEECH_MS = int(os.environ.get("VAD_MIN_SPEECH_MS", "200"))
+VAD_MIN_SILENCE_MS = int(os.environ.get("VAD_MIN_SILENCE_MS", "250"))
+# Extra frames kept as speech around each detected window so mouth
+# doesn't snap shut between syllables.
+VAD_PADDING_FRAMES = int(os.environ.get("VAD_PADDING_FRAMES", "2"))
+# Set VAD_ENABLED=0 to disable silence gating entirely.
+VAD_ENABLED = os.environ.get("VAD_ENABLED", "1") != "0"
+
 for d in (STORAGE_DIR, UPLOADS_DIR, VIDEOS_DIR, JOBS_DIR):
     d.mkdir(parents=True, exist_ok=True)

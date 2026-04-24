@@ -178,7 +178,7 @@ python - <<'PY'
 import importlib, sys
 for mod in ("torch", "torchvision", "transformers", "diffusers",
             "huggingface_hub", "mmcv", "mmdet", "mmpose", "mmengine",
-            "fastapi", "uvicorn", "kokoro", "soundfile"):
+            "fastapi", "uvicorn", "kokoro", "soundfile", "silero_vad"):
     try:
         m = importlib.import_module(mod)
         v = getattr(m, "__version__", "?")
