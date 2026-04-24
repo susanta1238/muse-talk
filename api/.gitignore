@@ -2,4 +2,5 @@ storage/
 __pycache__/
 *.pyc
 log.txt
+logs.txt
 *.log
