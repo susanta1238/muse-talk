@@ -1,0 +1,28 @@
+
+# 5. If that returns {"status":"ok"}, check startup log
+tail -30 /workspace/api.log
+[1] 3551
+{"status":"ok"}nohup: ignoring input
+Downloading: "https://www.adrianbulat.com/downloads/python-fan/s3fd-619a316812.pth" to /root/.cache/torch/hub/checkpoints/s3fd-619a316812.pth
+Loads checkpoint by local backend from path: ./models/dwpose/dw-ll_ucoco_384.pth
+cuda start
+100%|██████████| 85.7M/85.7M [00:01<00:00, 63.8MB/s]
+2026-04-24 13:01:56.795711: I tensorflow/core/util/port.cc:110] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-04-24 13:01:56.816787: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-04-24 13:01:57.264571: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+INFO:     Started server process [3551]
+INFO:     Waiting for application startup.
+2026-04-24 13:01:58,433 INFO musetalk-api: loading MuseTalk models...
+An error occurred while trying to fetch models/sd-vae: Error no file named diffusion_pytorch_model.safetensors found in directory models/sd-vae.
+Defaulting to unsafe serialization. Pass `allow_pickle=False` to raise an error instead.
+/usr/local/lib/python3.10/dist-packages/torch/_utils.py:831: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  return self.fget.__get__(instance, owner)()
+2026-04-24 13:02:10,627 INFO musetalk-api: models loaded
+2026-04-24 13:02:10,627 INFO musetalk-api: TTS service ready (lazy-loads on first request)
+2026-04-24 13:02:10,659 INFO musetalk-api: worker started
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+load unet model from /workspace/muse-talk/models/musetalkV15/unet.pth
+INFO:     127.0.0.1:38044 - "GET /health HTTP/1.1" 200 OK
+root@cf1da9bfd11c:/workspace/muse-talk#
