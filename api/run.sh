@@ -7,14 +7,33 @@ cd "$(dirname "$0")/.."
 HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-8000}"
 
-# -u forces unbuffered stdout/stderr so tqdm bars and print() calls
-# from inside the MuseTalk pipeline stream to the terminal in real time.
+# Force unbuffered stdout/stderr so tqdm bars and print() calls from
+# inside the MuseTalk pipeline stream to the terminal in real time.
 export PYTHONUNBUFFERED=1
 
-# uvicorn default log level plus disable access log buffering. --workers 1
-# because models live in process memory and the app is stateful (async
-# queue, SQLite). A second worker would duplicate the whole model load.
-exec python -u -m uvicorn api.app.main:app \
+# Pick the python interpreter where uvicorn was actually installed.
+# On RunPod's pytorch image, pip installs to python3.10's site-packages
+# but /usr/bin/python is often python3.8. Probe for a working one.
+PY=""
+for candidate in python3.10 python3 python; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+        if "$candidate" -c "import uvicorn" 2>/dev/null; then
+            PY="$candidate"
+            break
+        fi
+    fi
+done
+
+if [[ -z "$PY" ]]; then
+    echo "ERROR: could not find a python with uvicorn installed." >&2
+    echo "Tried: python3.10, python3, python" >&2
+    echo "Run 'bash api/bootstrap.sh' first." >&2
+    exit 1
+fi
+
+echo "Launching uvicorn via $PY ($(command -v "$PY"))"
+
+exec "$PY" -u -m uvicorn api.app.main:app \
     --host "$HOST" \
     --port "$PORT" \
     --workers 1 \
