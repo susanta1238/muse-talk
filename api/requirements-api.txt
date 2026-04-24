@@ -1,10 +1,22 @@
+# ---- FastAPI stack ----
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 python-multipart==0.0.9
-# Pin huggingface_hub below 1.0 — transformers==4.39.2 (from MuseTalk's
-# requirements.txt) requires huggingface_hub<1.0, but download_weights.sh
-# upgrades it past that if unpinned.
+
+# ---- huggingface_hub pin ----
+# transformers==4.39.2 (from MuseTalk's requirements.txt) requires
+# huggingface_hub<1.0. Without this pin, download_weights.sh or other
+# installs can upgrade it to 1.x and break transformers at import time.
 huggingface_hub>=0.19.3,<1.0
-# Voice Activity Detection for silence gating (prevents lips moving
-# during non-speech audio). CPU, ~20 MB, pulls only its own deps.
+
+# ---- Voice Activity Detection (silence gating) ----
+# Prevents lips from moving during non-speech audio. CPU, ~20 MB.
 silero-vad>=5.1.2
+
+# ---- TTS (Kokoro) ----
+# Apache 2.0, ~350 MB weights lazy-downloaded on first call, runs on
+# the same GPU as MuseTalk (~1 GB VRAM). `soundfile` is used to write
+# the generated WAV. `espeak-ng` is the system dep for phonemization —
+# installed via apt in bootstrap.sh.
+kokoro>=0.9.2
+soundfile>=0.12.1
